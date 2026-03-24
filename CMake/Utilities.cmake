@@ -45,6 +45,27 @@ function(build_dependency lib_name)
   # library building cmake.
   set(build_args ${ARGN})
 
+  # Propagate the parent cross toolchain into nested dependency builds.
+  if(DEFINED CMAKE_TOOLCHAIN_FILE AND NOT CMAKE_TOOLCHAIN_FILE STREQUAL "")
+    get_filename_component(toolchain_file_abs ${CMAKE_TOOLCHAIN_FILE} ABSOLUTE BASE_DIR ${CMAKE_SOURCE_DIR})
+    list(APPEND build_args -DCMAKE_TOOLCHAIN_FILE=${toolchain_file_abs})
+  endif()
+  if(DEFINED CMAKE_C_COMPILER AND NOT CMAKE_C_COMPILER STREQUAL "")
+    list(APPEND build_args -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
+  endif()
+  if(DEFINED CMAKE_CXX_COMPILER AND NOT CMAKE_CXX_COMPILER STREQUAL "")
+    list(APPEND build_args -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+  endif()
+  if(DEFINED CMAKE_SYSROOT AND NOT CMAKE_SYSROOT STREQUAL "")
+    list(APPEND build_args -DCMAKE_SYSROOT=${CMAKE_SYSROOT})
+  endif()
+  if(DEFINED CMAKE_LIBRARY_ARCHITECTURE AND NOT CMAKE_LIBRARY_ARCHITECTURE STREQUAL "")
+    list(APPEND build_args -DCMAKE_LIBRARY_ARCHITECTURE=${CMAKE_LIBRARY_ARCHITECTURE})
+  endif()
+  if(DEFINED CMAKE_MAKE_PROGRAM AND NOT CMAKE_MAKE_PROGRAM STREQUAL "")
+    list(APPEND build_args -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})
+  endif()
+
   file(REMOVE_RECURSE ${OPEN_SRC_INSTALL_PREFIX}/lib${lib_name})
 
   # build library

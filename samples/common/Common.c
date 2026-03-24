@@ -1,5 +1,8 @@
 #define LOG_CLASS "WebRtcSamples"
 #include "Samples.h"
+#ifdef ARNET_HAS_KVS_SDK
+#include "stream_apps/kvs_sdk_wrapper.h"
+#endif
 
 PSampleConfiguration gSampleConfiguration = NULL;
 
@@ -1486,6 +1489,13 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
             CHK_STATUS(createSampleStreamingSession(pSampleConfiguration, pReceivedSignalingMessage->signalingMessage.peerClientId, TRUE,
                                                     &pSampleStreamingSession));
             freeStreamingSession = TRUE;
+#ifdef ARNET_HAS_KVS_SDK
+            retStatus = kvs_embedded_create_control_data_channel(pSampleStreamingSession, pSampleStreamingSession->pPeerConnection);
+            if (STATUS_FAILED(retStatus)) {
+                DLOGW("[KVS Embedded] control data channel pre-answer creation failed: 0x%08x", retStatus);
+                retStatus = STATUS_SUCCESS;
+            }
+#endif
             CHK_STATUS(handleOffer(pSampleConfiguration, pSampleStreamingSession, &pReceivedSignalingMessage->signalingMessage));
             CHK_STATUS(hashTablePut(pSampleConfiguration->pRtcPeerConnectionForRemoteClient, clientIdHash, (UINT64) pSampleStreamingSession));
 

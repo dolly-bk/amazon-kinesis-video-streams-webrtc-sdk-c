@@ -7,6 +7,7 @@ if (WIN32)
   SET(CONFIGURE_COMMAND perl ${CMAKE_CURRENT_BINARY_DIR}/build/src/project_libopenssl/Configure VC-WIN64A no-asm --prefix=${OPEN_SRC_INSTALL_PREFIX} --openssldir=${OPEN_SRC_INSTALL_PREFIX})
 else()
   find_program(MAKE_EXE NAMES make)
+  set(OPENSSL_CROSS_COMPILE_PREFIX "")
   # OpenSSL takes a while to compile, so allow some parallelism.
   if (DEFINED ENV{CMAKE_BUILD_PARALLEL_LEVEL})
     list(APPEND MAKE_EXE "-j$ENV{CMAKE_BUILD_PARALLEL_LEVEL}")
@@ -22,8 +23,22 @@ else()
       endif()
   endif()
 
+  if (DEFINED BUILD_OPENSSL_PLATFORM AND BUILD_OPENSSL_PLATFORM STREQUAL "linux-aarch64")
+    # The OpenSSL aarch64 target otherwise falls back into an assembler path that
+    # emits x86-style flags like --64 under this cross toolchain.
+    SET(OPENSSL_EXTRA ${OPENSSL_EXTRA} no-asm)
+
+    if (DEFINED CMAKE_C_COMPILER AND NOT CMAKE_C_COMPILER STREQUAL "")
+      string(REGEX REPLACE "gcc([^/]*)$" "" OPENSSL_CROSS_COMPILE_PREFIX "${CMAKE_C_COMPILER}")
+    endif()
+  endif()
+
   if (DEFINED BUILD_OPENSSL_PLATFORM AND NOT BUILD_OPENSSL_PLATFORM STREQUAL OFF)
-    SET(CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/build/src/project_libopenssl/Configure ${OPENSSL_EXTRA} no-async --prefix=${OPEN_SRC_INSTALL_PREFIX} --openssldir=${OPEN_SRC_INSTALL_PREFIX} ${BUILD_OPENSSL_PLATFORM} -Wno-nullability-completeness -Wno-expansion-to-defined)
+    SET(CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/build/src/project_libopenssl/Configure ${OPENSSL_EXTRA} no-async --prefix=${OPEN_SRC_INSTALL_PREFIX} --openssldir=${OPEN_SRC_INSTALL_PREFIX} ${BUILD_OPENSSL_PLATFORM})
+    if (DEFINED OPENSSL_CROSS_COMPILE_PREFIX AND NOT OPENSSL_CROSS_COMPILE_PREFIX STREQUAL "")
+      list(APPEND CONFIGURE_COMMAND --cross-compile-prefix=${OPENSSL_CROSS_COMPILE_PREFIX})
+    endif()
+    list(APPEND CONFIGURE_COMMAND -Wno-nullability-completeness -Wno-expansion-to-defined)
   else()
     SET(CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/build/src/project_libopenssl/config ${OPENSSL_EXTRA} --prefix=${OPEN_SRC_INSTALL_PREFIX} --openssldir=${OPEN_SRC_INSTALL_PREFIX} -Wno-nullability-completeness -Wno-expansion-to-defined)
   endif()

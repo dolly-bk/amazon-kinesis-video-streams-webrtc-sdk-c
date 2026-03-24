@@ -9,7 +9,13 @@ ExternalProject_Add(project_libusrsctp
     GIT_TAG           1ade45cbadfd19298d2c47dc538962d4425ad2dd
     GIT_PROGRESS      TRUE
     PREFIX            ${CMAKE_CURRENT_BINARY_DIR}/build
-    CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=${OPEN_SRC_INSTALL_PREFIX}
+    CMAKE_ARGS        -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+                      -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                      -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                      -DCMAKE_SYSROOT=${CMAKE_SYSROOT}
+                      -DCMAKE_LIBRARY_ARCHITECTURE=${CMAKE_LIBRARY_ARCHITECTURE}
+                      -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+                      -DCMAKE_INSTALL_PREFIX=${OPEN_SRC_INSTALL_PREFIX}
                       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                       "-DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -fPIC"
                       -Dsctp_werror=0

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6.3)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
-include(Utilities)
+include("${CMAKE_CURRENT_SOURCE_DIR}/CMake/Utilities.cmake")
 include(CheckIncludeFiles)
 include(CheckFunctionExists)
 
@@ -194,6 +194,9 @@ if(BUILD_DEPENDENCIES)
                    -DOPENSSL_EXTRA=${OPENSSL_EXTRA})
     build_dependency(openssl ${BUILD_ARGS})
     set(OPENSSL_ROOT_DIR ${OPEN_SRC_INSTALL_PREFIX})
+    set(OPENSSL_INCLUDE_DIR ${OPEN_SRC_INSTALL_PREFIX}/include CACHE PATH "" FORCE)
+    set(OPENSSL_SSL_LIBRARY ${OPEN_SRC_INSTALL_PREFIX}/lib/libssl.so CACHE FILEPATH "" FORCE)
+    set(OPENSSL_CRYPTO_LIBRARY ${OPEN_SRC_INSTALL_PREFIX}/lib/libcrypto.so CACHE FILEPATH "" FORCE)
   elseif(USE_MBEDTLS)
     set(BUILD_ARGS -DBUILD_STATIC_LIBS=${BUILD_STATIC_LIBS}
                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -304,11 +307,21 @@ else()
 endif()
 
 if (OPEN_SRC_INSTALL_PREFIX)
-  find_library(SRTP_LIBRARIES srtp2 REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX})
+  if (EXISTS ${OPEN_SRC_INSTALL_PREFIX}/lib/libsrtp2.a)
+    set(SRTP_LIBRARIES ${OPEN_SRC_INSTALL_PREFIX}/lib/libsrtp2.a)
+  elseif (EXISTS ${OPEN_SRC_INSTALL_PREFIX}/lib/libsrtp2.so)
+    set(SRTP_LIBRARIES ${OPEN_SRC_INSTALL_PREFIX}/lib/libsrtp2.so)
+  elseif (EXISTS ${OPEN_SRC_INSTALL_PREFIX}/lib64/libsrtp2.a)
+    set(SRTP_LIBRARIES ${OPEN_SRC_INSTALL_PREFIX}/lib64/libsrtp2.a)
+  elseif (EXISTS ${OPEN_SRC_INSTALL_PREFIX}/lib64/libsrtp2.so)
+    set(SRTP_LIBRARIES ${OPEN_SRC_INSTALL_PREFIX}/lib64/libsrtp2.so)
+  else()
+    find_library(SRTP_LIBRARIES srtp2 REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX}/lib ${OPEN_SRC_INSTALL_PREFIX}/lib64 NO_DEFAULT_PATH)
+  endif()
 
   if (LINK_PROFILER)
-    find_library(GPERFTOOLS_MALLOC_LIBRARIES tcmalloc REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX})
-    find_library(GPERFTOOLS_PROFILER_LIBRARIES profiler REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX})
+    find_library(GPERFTOOLS_MALLOC_LIBRARIES tcmalloc REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX}/lib ${OPEN_SRC_INSTALL_PREFIX}/lib64)
+    find_library(GPERFTOOLS_PROFILER_LIBRARIES profiler REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX}/lib ${OPEN_SRC_INSTALL_PREFIX}/lib64)
   endif()
 else()
   find_library(SRTP_LIBRARIES srtp2 REQUIRED )
@@ -325,10 +338,21 @@ else()
 endif()
 
 # usrsctp dont support pkgconfig yet
-find_library(
-  Usrsctp
-  NAMES ${USRSCTP_LIBNAME} usrsctp REQUIRED
-  PATHS ${OPEN_SRC_INSTALL_PREFIX}/lib ${OPEN_SRC_INSTALL_PREFIX}/lib64)
+if (EXISTS ${OPEN_SRC_INSTALL_PREFIX}/lib/libusrsctp.a)
+  set(Usrsctp ${OPEN_SRC_INSTALL_PREFIX}/lib/libusrsctp.a)
+elseif (EXISTS ${OPEN_SRC_INSTALL_PREFIX}/lib/libusrsctp.so)
+  set(Usrsctp ${OPEN_SRC_INSTALL_PREFIX}/lib/libusrsctp.so)
+elseif (EXISTS ${OPEN_SRC_INSTALL_PREFIX}/lib64/libusrsctp.a)
+  set(Usrsctp ${OPEN_SRC_INSTALL_PREFIX}/lib64/libusrsctp.a)
+elseif (EXISTS ${OPEN_SRC_INSTALL_PREFIX}/lib64/libusrsctp.so)
+  set(Usrsctp ${OPEN_SRC_INSTALL_PREFIX}/lib64/libusrsctp.so)
+else()
+  find_library(
+    Usrsctp
+    NAMES ${USRSCTP_LIBNAME} usrsctp REQUIRED
+    PATHS ${OPEN_SRC_INSTALL_PREFIX}/lib ${OPEN_SRC_INSTALL_PREFIX}/lib64
+    NO_DEFAULT_PATH)
+endif()
 
 set(OPEN_SRC_INCLUDE_DIRS ${OPEN_SRC_INCLUDE_DIRS} ${LIBSRTP_INCLUDE_DIRS}
                           ${CURL_INCLUDE_DIRS} ${LIBWEBSOCKETS_INCLUDE_DIRS})
@@ -523,4 +547,3 @@ get_directory_property(clean_files ADDITIONAL_CLEAN_FILES)
 list(APPEND clean_files "${OPEN_SRC_INSTALL_PREFIX}")
 list(APPEND clean_files "${CMAKE_CURRENT_SOURCE_DIR}/build")
 set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${clean_files}")
-

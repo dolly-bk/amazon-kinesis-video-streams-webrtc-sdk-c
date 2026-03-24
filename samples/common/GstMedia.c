@@ -1,6 +1,7 @@
 #include "GstMedia.h"
 
 GstElement* senderPipeline = NULL;
+#define CUSTOM_GST_PIPELINE_ENV_VAR ((PCHAR) "KVS_CUSTOM_GST_PIPELINE")
 
 GstFlowReturn on_new_sample(GstElement* sink, gpointer data, UINT64 trackid)
 {
@@ -84,13 +85,24 @@ GstFlowReturn on_new_sample(GstElement* sink, gpointer data, UINT64 trackid)
                 if (pSampleStreamingSession->pSampleConfiguration->enableTwcc && senderPipeline != NULL) {
                     GstElement* encoder = gst_bin_get_by_name(GST_BIN(senderPipeline), "sampleVideoEncoder");
                     if (encoder != NULL) {
-                        g_object_get(G_OBJECT(encoder), "bitrate", &bitrate, NULL);
+                        GParamSpec* bitrate_prop = g_object_class_find_property(G_OBJECT_GET_CLASS(encoder), "bitrate");
+                        GParamSpec* bps_prop = g_object_class_find_property(G_OBJECT_GET_CLASS(encoder), "bps");
+
+                        if (bitrate_prop != NULL) {
+                            g_object_get(G_OBJECT(encoder), "bitrate", &bitrate, NULL);
+                        } else if (bps_prop != NULL) {
+                            g_object_get(G_OBJECT(encoder), "bps", &bitrate, NULL);
+                        }
                         MUTEX_LOCK(pSampleStreamingSession->twccMetadata.updateLock);
                         pSampleStreamingSession->twccMetadata.currentVideoBitrate = (UINT64) bitrate;
                         if (pSampleStreamingSession->twccMetadata.newVideoBitrate != 0) {
                             bitrate = (guint) (pSampleStreamingSession->twccMetadata.newVideoBitrate);
                             pSampleStreamingSession->twccMetadata.newVideoBitrate = 0;
-                            g_object_set(G_OBJECT(encoder), "bitrate", bitrate, NULL);
+                            if (bitrate_prop != NULL) {
+                                g_object_set(G_OBJECT(encoder), "bitrate", bitrate, NULL);
+                            } else if (bps_prop != NULL) {
+                                g_object_set(G_OBJECT(encoder), "bps", bitrate, NULL);
+                            }
                         }
                         MUTEX_UNLOCK(pSampleStreamingSession->twccMetadata.updateLock);
                     }
@@ -179,6 +191,12 @@ PVOID sendGstreamerAudioVideo(PVOID args)
      */
 
     CHAR rtspPipeLineBuffer[RTSP_PIPELINE_MAX_CHAR_COUNT];
+    PCHAR pCustomPipeline = GETENV(CUSTOM_GST_PIPELINE_ENV_VAR);
+
+    if (!IS_NULL_OR_EMPTY_STRING(pCustomPipeline)) {
+        DLOGI("[KVS GStreamer Master] Using custom pipeline from env %s", CUSTOM_GST_PIPELINE_ENV_VAR);
+        senderPipeline = gst_parse_launch(pCustomPipeline, &gError);
+    } else {
 
     switch (pSampleConfiguration->mediaType) {
         case SAMPLE_STREAMING_VIDEO_ONLY:
@@ -297,6 +315,7 @@ PVOID sendGstreamerAudioVideo(PVOID args)
                 }
             }
             break;
+    }
     }
 
     // When the senderPipeline is non-null and gError is non-null at the same time, it means
