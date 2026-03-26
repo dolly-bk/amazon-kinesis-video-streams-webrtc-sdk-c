@@ -190,6 +190,7 @@ struct __SampleConfiguration {
     PStackQueue pregeneratedCertificates; // Max MAX_RTCCONFIGURATION_CERTIFICATES certificates
 
     PCHAR rtspUri;
+    PCHAR customGstPipeline;
     UINT32 logLevel;
     BOOL enableTwcc;
     BOOL enableIceStats;

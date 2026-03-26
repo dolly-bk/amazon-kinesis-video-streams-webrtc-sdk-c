@@ -191,10 +191,13 @@ PVOID sendGstreamerAudioVideo(PVOID args)
      */
 
     CHAR rtspPipeLineBuffer[RTSP_PIPELINE_MAX_CHAR_COUNT];
-    PCHAR pCustomPipeline = GETENV(CUSTOM_GST_PIPELINE_ENV_VAR);
+    PCHAR pCustomPipeline = pSampleConfiguration->customGstPipeline;
+    if (IS_NULL_OR_EMPTY_STRING(pCustomPipeline)) {
+        pCustomPipeline = GETENV(CUSTOM_GST_PIPELINE_ENV_VAR);
+    }
 
     if (!IS_NULL_OR_EMPTY_STRING(pCustomPipeline)) {
-        DLOGI("[KVS GStreamer Master] Using custom pipeline from env %s", CUSTOM_GST_PIPELINE_ENV_VAR);
+        DLOGI("[KVS GStreamer Master] Using custom pipeline");
         senderPipeline = gst_parse_launch(pCustomPipeline, &gError);
     } else {
 
