@@ -1,7 +1,15 @@
 #include "GstMedia.h"
 
-GstElement* senderPipeline = NULL;
 #define CUSTOM_GST_PIPELINE_ENV_VAR ((PCHAR) "KVS_CUSTOM_GST_PIPELINE")
+
+static GstElement* get_sender_pipeline_for_sink(GstElement* sink)
+{
+    if (sink == NULL) {
+        return NULL;
+    }
+
+    return GST_ELEMENT(gst_object_get_parent(GST_OBJECT(sink)));
+}
 
 GstFlowReturn on_new_sample(GstElement* sink, gpointer data, UINT64 trackid)
 {
@@ -18,12 +26,14 @@ GstFlowReturn on_new_sample(GstElement* sink, gpointer data, UINT64 trackid)
     PSampleConfiguration pSampleConfiguration = (PSampleConfiguration) data;
     PSampleStreamingSession pSampleStreamingSession = NULL;
     PRtcRtpTransceiver pRtcRtpTransceiver = NULL;
+    GstElement* senderPipeline = NULL;
     UINT32 i;
     guint bitrate;
 
     CHK_ERR(pSampleConfiguration != NULL, STATUS_NULL_ARG, "NULL sample configuration");
 
     info.data = NULL;
+    senderPipeline = get_sender_pipeline_for_sink(sink);
     sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
 
     buffer = gst_sample_get_buffer(sample);
@@ -74,6 +84,7 @@ GstFlowReturn on_new_sample(GstElement* sink, gpointer data, UINT64 trackid)
                             g_object_set(G_OBJECT(encoder), "bitrate", bitrate, NULL);
                         }
                         MUTEX_UNLOCK(pSampleStreamingSession->twccMetadata.updateLock);
+                        gst_object_unref(encoder);
                     }
                 }
                 pRtcRtpTransceiver = pSampleStreamingSession->pAudioRtcRtpTransceiver;
@@ -105,6 +116,7 @@ GstFlowReturn on_new_sample(GstElement* sink, gpointer data, UINT64 trackid)
                             }
                         }
                         MUTEX_UNLOCK(pSampleStreamingSession->twccMetadata.updateLock);
+                        gst_object_unref(encoder);
                     }
                 }
                 pRtcRtpTransceiver = pSampleStreamingSession->pVideoRtcRtpTransceiver;
@@ -137,6 +149,10 @@ CleanUp:
         gst_sample_unref(sample);
     }
 
+    if (senderPipeline != NULL) {
+        gst_object_unref(senderPipeline);
+    }
+
     if (ATOMIC_LOAD_BOOL(&pSampleConfiguration->appTerminateFlag)) {
         ret = GST_FLOW_EOS;
     }
@@ -158,6 +174,7 @@ PVOID sendGstreamerAudioVideo(PVOID args)
 {
     STATUS retStatus = STATUS_SUCCESS;
     GstElement *appsinkVideo = NULL, *appsinkAudio = NULL;
+    GstElement* senderPipeline = NULL;
     GstBus* bus = NULL;
     GstMessage* msg = NULL;
     GError* gError = NULL;
